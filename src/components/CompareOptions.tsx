@@ -13,7 +13,7 @@ import type {
   SavedComparison,
   UserFinancialProfile,
 } from '../types';
-import { saveComparisonToFirestore } from '../firebase';
+import { formatFirestoreErrorForUI, saveComparisonToFirestore } from '../firebase';
 import AccountSyncBar from './AccountSyncBar';
 import type { PageId } from './Navbar';
 
@@ -178,11 +178,7 @@ export default function CompareOptions({
       onComparisonSaved(item);
       setSaveMessage('Comparison scenario saved to your Firestore account.');
     } catch (err) {
-      setSaveError(
-        err instanceof Error
-          ? `Could not save scenario: ${err.message}`
-          : 'Could not save scenario.'
-      );
+      setSaveError(formatFirestoreErrorForUI(err));
     } finally {
       setSaveLoading(false);
     }

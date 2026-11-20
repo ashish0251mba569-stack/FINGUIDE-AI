@@ -26,7 +26,7 @@ import {
   SAVINGS_LABELS,
 } from '../data/financialOptions';
 import { computeConfidenceProfileDetails } from '../utils/confidenceScoring';
-import { saveAssessmentToFirestore } from '../firebase';
+import { formatFirestoreErrorForUI, saveAssessmentToFirestore } from '../firebase';
 import AccountSyncBar from './AccountSyncBar';
 import type { PageId } from './Navbar';
 
@@ -133,11 +133,7 @@ export default function ConfidenceCheck({
         await saveAssessmentToFirestore(user, profile);
         setCloudSaved(true);
       } catch (err) {
-        setStatusMessage(
-          err instanceof Error
-            ? `Could not save to cloud database: ${err.message}`
-            : 'Could not save to cloud database.'
-        );
+        setStatusMessage(formatFirestoreErrorForUI(err));
       }
     }
 
@@ -165,11 +161,7 @@ export default function ConfidenceCheck({
       await saveAssessmentToFirestore(user, existingProfile);
       setCloudSaved(true);
     } catch (err) {
-      setStatusMessage(
-        err instanceof Error
-          ? `Could not save to cloud database: ${err.message}`
-          : 'Could not save to cloud database.'
-      );
+      setStatusMessage(formatFirestoreErrorForUI(err));
     } finally {
       setSubmitting(false);
     }

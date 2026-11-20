@@ -103,22 +103,68 @@ googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 export function formatAuthError(error: unknown): string {
   const msg = error instanceof Error ? error.message : String(error);
+  if (msg.includes('auth/configuration-not-found')) {
+    return 'Firebase Authentication is not initialized yet for project finguide-ai-3e912. Open Firebase Console → Authentication → Get started.';
+  }
+  if (msg.includes('auth/operation-not-allowed')) {
+    return 'Google Sign-In is not enabled yet. Enable Google under Firebase Console → Authentication → Sign-in method.';
+  }
+  if (msg.includes('auth/unauthorized-domain')) {
+    return 'This app domain is not authorized yet. Add this URL under Firebase Console → Authentication → Settings → Authorized domains.';
+  }
   if (msg.includes('auth/popup-closed-by-user')) {
     return 'Google sign-in popup was closed before completing.';
   }
   if (msg.includes('auth/popup-blocked')) {
     return 'Pop-up was blocked by your browser. Please allow pop-ups for this site and try again.';
   }
-  if (msg.includes('auth/unauthorized-domain')) {
-    return 'This app domain is not authorized yet. Add this URL under Firebase Console → Authentication → Settings → Authorized domains.';
-  }
-  if (msg.includes('auth/operation-not-allowed')) {
-    return 'Google Sign-In is not enabled yet. Enable Google under Firebase Console → Authentication → Sign-in method.';
-  }
   if (msg.includes('auth/cancelled-popup-request')) {
     return 'Sign-in request was cancelled. Please try again.';
   }
+  if (msg.includes('auth/invalid-api-key')) {
+    return 'Firebase API key is invalid or restricted. Verify the web config for finguide-ai-3e912.';
+  }
+  if (msg.includes('auth/network-request-failed')) {
+    return 'Network error while contacting Google Sign-In. Check your internet connection and try again.';
+  }
+  if (msg.includes('auth/account-exists-with-different-credential')) {
+    return 'An account already exists with this email under a different sign-in provider.';
+  }
+  if (msg.includes('auth/internal-error')) {
+    return 'Google Sign-In hit a temporary auth configuration error. Verify Google provider and Authorized domains in Firebase Console.';
+  }
   return msg || 'Google sign-in failed.';
+}
+
+export function formatFirestoreErrorForUI(error: unknown): string {
+  const raw = error instanceof Error ? error.message : String(error);
+  let inner = raw;
+  try {
+    const parsed = JSON.parse(raw) as Partial<FirestoreErrorInfo>;
+    if (typeof parsed.error === 'string' && parsed.error) {
+      inner = parsed.error;
+    }
+  } catch {
+    // Plain error string
+  }
+
+  if (
+    inner.includes('Missing or insufficient permissions') ||
+    inner.includes('PERMISSION_DENIED') ||
+    inner.includes('permission-denied')
+  ) {
+    return 'Firestore permission denied. Publish the rules from firestore.rules in Firebase Console → Firestore Database → Rules for finguide-ai-3e912.';
+  }
+  if (inner.includes('does not exist') || inner.includes('NOT_FOUND')) {
+    return 'Firestore database has not been created yet in project finguide-ai-3e912. Open Firebase Console → Firestore Database → Create database.';
+  }
+  if (inner.includes('Quota exceeded')) {
+    return 'Firestore daily free-tier quota exceeded. Quota resets tomorrow.';
+  }
+  if (inner.includes('client is offline') || inner.includes('unavailable')) {
+    return 'Could not reach Firestore right now. Your data remains saved in this browser.';
+  }
+  return inner || 'Could not sync with Firestore.';
 }
 
 export async function signInWithGoogle(): Promise<User> {

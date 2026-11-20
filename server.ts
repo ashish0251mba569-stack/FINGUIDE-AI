@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { fileURLToPath } from 'url';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, ThinkingLevel } from '@google/genai';
 
 dotenv.config();
 
@@ -132,13 +132,14 @@ function writeStore(data: StoreData): void {
 }
 
 function getAiClient(): GoogleGenAI {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
+  const apiKey = process.env.GEMINI_API_KEY?.trim();
+  if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') {
     throw new Error('GEMINI_API_KEY is not configured in the server environment.');
   }
   return new GoogleGenAI({
     apiKey,
     httpOptions: {
+      timeout: 25000,
       headers: {
         'User-Agent': 'aistudio-build',
       },
@@ -191,27 +192,88 @@ function splitSimpleSummary(text: string): { content: string; simpleSummary: str
 
 function handleGeminiError(err: unknown, res: express.Response): void {
   console.error('Gemini API error:', err);
-  const message = err instanceof Error ? err.message : 'Unknown AI service error';
+  let status =
+    typeof err === 'object' && err !== null && 'status' in err
+      ? Number((err as { status?: unknown }).status)
+      : undefined;
+  let message = err instanceof Error ? err.message : String(err);
+
+  // @google/genai ApiError often embeds JSON payload inside message
+  try {
+    const jsonMatch = message.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]) as {
+        error?: { code?: number; message?: string; status?: string };
+      };
+      if (parsed.error?.code && !status) {
+        status = Number(parsed.error.code);
+      }
+      if (parsed.error?.message) {
+        message = `${parsed.error.status || ''} ${parsed.error.message}`.trim();
+      }
+    }
+  } catch {
+    // Keep original message
+  }
+
   if (message.includes('GEMINI_API_KEY')) {
     res.status(503).json({
       error: 'AI guidance service requires a configured GEMINI_API_KEY in Settings > Secrets.',
     });
     return;
   }
-  if (message.includes('403') || message.includes('PERMISSION_DENIED') || message.includes('API_KEY_INVALID')) {
+  if (
+    status === 400 ||
+    status === 401 ||
+    status === 403 ||
+    message.includes('403') ||
+    message.includes('PERMISSION_DENIED') ||
+    message.includes('API_KEY_INVALID') ||
+    message.includes('API key not valid') ||
+    message.includes('UNAUTHENTICATED')
+  ) {
     res.status(401).json({
       error: 'Unable to authenticate with Gemini API. Please verify GEMINI_API_KEY in Settings > Secrets.',
     });
     return;
   }
-  if (message.includes('429') || message.includes('RESOURCE_EXHAUSTED')) {
+  if (status === 404 || message.includes('NOT_FOUND') || message.includes('404')) {
+    res.status(502).json({
+      error: 'The configured Gemini model could not be reached for this API key. Please try again in a moment.',
+    });
+    return;
+  }
+  if (status === 429 || message.includes('429') || message.includes('RESOURCE_EXHAUSTED')) {
     res.status(429).json({
       error: 'AI guidance quota is temporarily busy. Please wait a moment and try again.',
     });
     return;
   }
+  if (
+    status === 504 ||
+    message.includes('DEADLINE_EXCEEDED') ||
+    message.includes('504')
+  ) {
+    res.status(504).json({
+      error: 'The Gemini AI service took too long to respond. Please try again in a moment.',
+    });
+    return;
+  }
+  if (
+    status === 503 ||
+    message.includes('UNAVAILABLE') ||
+    message.includes('fetch failed') ||
+    message.includes('ECONNREFUSED') ||
+    message.includes('ENOTFOUND') ||
+    message.includes('ETIMEDOUT')
+  ) {
+    res.status(503).json({
+      error: 'Could not reach the Gemini AI service right now (network or service unavailable). Please try again in a moment.',
+    });
+    return;
+  }
   res.status(500).json({
-    error: 'Could not generate an AI explanation right now. Please try again in a moment.',
+    error: `Could not generate an AI explanation right now (${status ? `HTTP ${status}` : message.slice(0, 120)}). Please try again in a moment.`,
   });
 }
 
@@ -248,6 +310,7 @@ async function startServer(): Promise<void> {
         contents: conversationLines.join('\n\n'),
         config: {
           systemInstruction,
+          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
         },
       });
 
@@ -322,6 +385,7 @@ End with "In simple words: <1-2 sentence takeaway>".`;
         contents: prompt,
         config: {
           systemInstruction,
+          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
         },
       });
 
@@ -603,6 +667,11 @@ End with "In simple words: <1-2 sentence takeaway>".`;
       recentFeedback: store.feedback.slice(0, 15),
       recentWtp: store.wtp.slice(0, 15),
     });
+  });
+
+  // Ensure unknown API routes always return JSON instead of SPA HTML
+  app.all('/api/*', (_req, res) => {
+    res.status(404).json({ error: 'API endpoint not found.' });
   });
 
   // Vite dev middleware or static dist serving

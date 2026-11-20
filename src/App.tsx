@@ -16,6 +16,7 @@ import {
   fetchComparisonsFromFirestore,
   fetchLatestAssessmentFromFirestore,
   fetchLearningProgressFromFirestore,
+  formatFirestoreErrorForUI,
   saveLearningProgressToFirestore,
 } from './firebase';
 import { computeConfidenceProfileDetails } from './utils/confidenceScoring';
@@ -95,13 +96,14 @@ export default function App() {
         return;
       }
 
-      try {
-        const [latestAssessment, comparisons, learned] = await Promise.all([
-          fetchLatestAssessmentFromFirestore(nextUser.uid),
-          fetchComparisonsFromFirestore(nextUser.uid),
-          fetchLearningProgressFromFirestore(nextUser.uid),
-        ]);
+      const [assessmentRes, comparisonsRes, learnedRes] = await Promise.allSettled([
+        fetchLatestAssessmentFromFirestore(nextUser.uid),
+        fetchComparisonsFromFirestore(nextUser.uid),
+        fetchLearningProgressFromFirestore(nextUser.uid),
+      ]);
 
+      if (assessmentRes.status === 'fulfilled') {
+        const latestAssessment = assessmentRes.value;
         if (latestAssessment && latestAssessment.goal && latestAssessment.incomeRange) {
           const computed = computeConfidenceProfileDetails({
             goal: latestAssessment.goal,
@@ -136,15 +138,19 @@ export default function App() {
             completedAt: latestAssessment.completedAt || new Date().toISOString(),
           });
         }
+      }
 
-        setSavedComparisons(comparisons);
+      if (comparisonsRes.status === 'fulfilled') {
+        setSavedComparisons(comparisonsRes.value);
+      }
 
-        if (learned.length > 0) {
-          setCompletedTopics(learned as EducationalSectionId[]);
+      if (learnedRes.status === 'fulfilled') {
+        if (learnedRes.value.length > 0) {
+          setCompletedTopics(learnedRes.value as EducationalSectionId[]);
           setLearnSyncStatus('Reading progress synced with Firestore');
         }
-      } catch (err) {
-        console.error('Could not hydrate user data from Firestore:', err);
+      } else {
+        setLearnSyncStatus(formatFirestoreErrorForUI(learnedRes.reason));
       }
     });
 
@@ -180,8 +186,12 @@ export default function App() {
     setCompletedTopics(next);
 
     if (user) {
-      await saveLearningProgressToFirestore(user, next);
-      setLearnSyncStatus('Reading progress saved to Firestore');
+      try {
+        await saveLearningProgressToFirestore(user, next);
+        setLearnSyncStatus('Reading progress saved to Firestore');
+      } catch (err) {
+        setLearnSyncStatus(formatFirestoreErrorForUI(err));
+      }
     }
   };
 
