@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import type { User } from 'firebase/auth';
 import { AlertCircle, Check, Send } from 'lucide-react';
 import type { ChatMessage, UserFinancialProfile } from '../types';
 import { GOAL_LABELS, RISK_LABELS, SAVINGS_LABELS } from '../data/financialOptions';
+import AccountSyncBar from './AccountSyncBar';
 import type { PageId } from './Navbar';
 
 interface GuidanceChatProps {
@@ -12,6 +14,8 @@ interface GuidanceChatProps {
   dailyQuestionsUsed: number;
   onIncrementDailyQuestions: () => void;
   onNavigate: (page: PageId) => void;
+  user: User | null;
+  authReady: boolean;
 }
 
 const FREE_DAILY_LIMIT = 5;
@@ -32,6 +36,8 @@ export default function GuidanceChat({
   dailyQuestionsUsed,
   onIncrementDailyQuestions,
   onNavigate,
+  user,
+  authReady,
 }: GuidanceChatProps) {
   const [sessionId] = useState<string>(() => crypto.randomUUID());
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -202,6 +208,13 @@ export default function GuidanceChat({
           {isPremiumTrial ? 'Premium Trial: Unlimited' : `Free Plan: ${remainingFree}/${FREE_DAILY_LIMIT} left today`}
         </span>
       </div>
+
+      {/* Google Account Sync Bar */}
+      <AccountSyncBar
+        user={user}
+        authReady={authReady}
+        syncStatusText="Signed in — your saved Confidence Check profile personalizes AI answers"
+      />
 
       {/* Personalization Context Bar */}
       <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">

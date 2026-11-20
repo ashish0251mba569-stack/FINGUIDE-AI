@@ -101,9 +101,34 @@ void testConnection();
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
+export function formatAuthError(error: unknown): string {
+  const msg = error instanceof Error ? error.message : String(error);
+  if (msg.includes('auth/popup-closed-by-user')) {
+    return 'Google sign-in popup was closed before completing.';
+  }
+  if (msg.includes('auth/popup-blocked')) {
+    return 'Pop-up was blocked by your browser. Please allow pop-ups for this site and try again.';
+  }
+  if (msg.includes('auth/unauthorized-domain')) {
+    return 'This app domain is not authorized yet. Add this URL under Firebase Console → Authentication → Settings → Authorized domains.';
+  }
+  if (msg.includes('auth/operation-not-allowed')) {
+    return 'Google Sign-In is not enabled yet. Enable Google under Firebase Console → Authentication → Sign-in method.';
+  }
+  if (msg.includes('auth/cancelled-popup-request')) {
+    return 'Sign-in request was cancelled. Please try again.';
+  }
+  return msg || 'Google sign-in failed.';
+}
+
 export async function signInWithGoogle(): Promise<User> {
   const result = await signInWithPopup(auth, googleProvider);
-  await ensureUserProfile(result.user);
+  try {
+    await ensureUserProfile(result.user);
+  } catch (err) {
+    // Keep the user signed in to Auth even if Firestore rules/db aren't ready yet
+    console.warn('Signed in with Google, but Firestore profile sync failed:', err);
+  }
   return result.user;
 }
 

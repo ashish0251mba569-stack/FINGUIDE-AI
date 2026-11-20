@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import type { User } from 'firebase/auth';
 import { Cloud, CloudOff, LogOut } from 'lucide-react';
-import { signInWithGoogle, signOutUser } from '../firebase';
+import { formatAuthError, signInWithGoogle, signOutUser } from '../firebase';
+import GoogleGIcon from './GoogleGIcon';
 
 interface AccountSyncBarProps {
   user: User | null;
@@ -23,12 +24,7 @@ export default function AccountSyncBar({
     try {
       await signInWithGoogle();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Google sign-in failed.';
-      if (msg.includes('popup-closed-by-user')) {
-        setAuthError('Sign-in popup was closed before completing.');
-      } else {
-        setAuthError(msg);
-      }
+      setAuthError(formatAuthError(err));
     } finally {
       setBusy(false);
     }
@@ -40,7 +36,7 @@ export default function AccountSyncBar({
     try {
       await signOutUser();
     } catch (err) {
-      setAuthError(err instanceof Error ? err.message : 'Could not sign out.');
+      setAuthError(formatAuthError(err));
     } finally {
       setBusy(false);
     }
@@ -49,7 +45,7 @@ export default function AccountSyncBar({
   if (!authReady) {
     return (
       <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 text-xs text-slate-500">
-        Checking account status...
+        Checking Google account status...
       </div>
     );
   }
@@ -94,9 +90,10 @@ export default function AccountSyncBar({
               type="button"
               onClick={() => void handleSignIn()}
               disabled={busy}
-              className="px-4 py-2 text-xs font-semibold text-white bg-[#0F2942] hover:bg-[#163A5F] disabled:opacity-60 rounded-lg transition-colors whitespace-nowrap shrink-0 self-start sm:self-auto cursor-pointer"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold text-[#0F2942] bg-white hover:bg-slate-50 border border-slate-300 disabled:opacity-60 rounded-lg transition-colors whitespace-nowrap shrink-0 self-start sm:self-auto cursor-pointer"
             >
-              {busy ? 'Opening Google...' : 'Sign in with Google to Save'}
+              <GoogleGIcon className="w-4 h-4 shrink-0" />
+              <span>{busy ? 'Opening Google...' : 'Sign in with Google'}</span>
             </button>
           </>
         )}

@@ -228,6 +228,8 @@ export default function App() {
           currentPage={currentPage}
           onNavigate={setCurrentPage}
           hasProfile={Boolean(profile)}
+          user={user}
+          authReady={authReady}
         />
 
         <main className="flex-1">
@@ -266,6 +268,8 @@ export default function App() {
               dailyQuestionsUsed={dailyQuestionsUsed}
               onIncrementDailyQuestions={handleIncrementDailyQuestions}
               onNavigate={setCurrentPage}
+              user={user}
+              authReady={authReady}
             />
           )}
 
