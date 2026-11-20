@@ -1,0 +1,215 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Reusable Hardened Primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isVerifiedUser() && request.auth.uid == userId;
+    }
+
+    // Validation Helpers
+    function isValidUserProfile(data, userId) {
+      return data.keys().hasAll(['uid', 'displayName', 'email', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'email', 'createdAt', 'updatedAt'])
+        && data.uid is string
+        && data.uid == userId
+        && data.uid == request.auth.uid
+        && data.displayName is string
+        && data.displayName.size() >= 1
+        && data.displayName.size() <= 100
+        && data.email is string
+        && data.email.size() >= 3
+        && data.email.size() <= 160
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAssessment(data, userId, assessmentId) {
+      return data.keys().hasAll([
+          'id', 'userId', 'goal', 'incomeRange', 'expenseRatio',
+          'savingsLevel', 'emergencyFundMonths', 'experience',
+          'riskPreference', 'knowledgeLevel', 'biggestConfusion',
+          'score', 'scoreLabel', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'userId', 'name', 'city', 'goal', 'incomeRange', 'expenseRatio',
+          'savingsLevel', 'emergencyFundMonths', 'experience',
+          'riskPreference', 'knowledgeLevel', 'biggestConfusion',
+          'score', 'scoreLabel', 'createdAt'
+        ])
+        && data.id is string
+        && data.id == assessmentId
+        && isValidId(data.id)
+        && data.userId is string
+        && data.userId == userId
+        && data.userId == request.auth.uid
+        && (!('name' in data) || (data.name is string && data.name.size() <= 80))
+        && (!('city' in data) || (data.city is string && data.city.size() <= 80))
+        && data.goal in ['emergency_fund', 'first_investment', 'saving_for_purchase', 'learning_basics']
+        && data.incomeRange in ['under_5k', '5k_to_15k', '15k_to_35k', 'above_35k']
+        && data.expenseRatio in ['under_50', '50_to_75', '75_to_95', 'above_95']
+        && data.savingsLevel in ['starting_0_5k', 'cushion_5k_25k', 'growing_25k_1l', 'solid_above_1l']
+        && data.emergencyFundMonths in ['none', 'under_1_month', '1_to_3_months', '3_to_6_plus_months']
+        && data.experience in ['none', 'beginner', 'some']
+        && data.riskPreference in ['low', 'medium', 'high']
+        && data.knowledgeLevel in ['new', 'basic', 'moderate']
+        && data.biggestConfusion in ['saving', 'budgeting', 'investing', 'insurance', 'terminology']
+        && data.score is int
+        && data.score >= 0
+        && data.score <= 100
+        && data.scoreLabel is string
+        && data.scoreLabel.size() >= 1
+        && data.scoreLabel.size() <= 60
+        && data.createdAt is timestamp;
+    }
+
+    function isValidComparison(data, userId, comparisonId) {
+      return data.keys().hasAll([
+          'id', 'userId', 'monthlyAmount', 'durationYears',
+          'fdRate', 'sipRate', 'ppfRate', 'totalInvested',
+          'fdMaturity', 'sipMaturity', 'ppfMaturity', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'userId', 'monthlyAmount', 'durationYears',
+          'fdRate', 'sipRate', 'ppfRate', 'totalInvested',
+          'fdMaturity', 'sipMaturity', 'ppfMaturity', 'createdAt'
+        ])
+        && data.id is string
+        && data.id == comparisonId
+        && isValidId(data.id)
+        && data.userId is string
+        && data.userId == userId
+        && data.userId == request.auth.uid
+        && (data.monthlyAmount is int || data.monthlyAmount is float)
+        && data.monthlyAmount >= 100
+        && data.monthlyAmount <= 10000000
+        && data.durationYears is int
+        && data.durationYears >= 1
+        && data.durationYears <= 40
+        && (data.fdRate is int || data.fdRate is float)
+        && data.fdRate >= 0
+        && data.fdRate <= 35
+        && (data.sipRate is int || data.sipRate is float)
+        && data.sipRate >= 0
+        && data.sipRate <= 35
+        && (data.ppfRate is int || data.ppfRate is float)
+        && data.ppfRate >= 0
+        && data.ppfRate <= 35
+        && (data.totalInvested is int || data.totalInvested is float)
+        && data.totalInvested >= 0
+        && (data.fdMaturity is int || data.fdMaturity is float)
+        && data.fdMaturity >= 0
+        && (data.sipMaturity is int || data.sipMaturity is float)
+        && data.sipMaturity >= 0
+        && (data.ppfMaturity is int || data.ppfMaturity is float)
+        && data.ppfMaturity >= 0
+        && data.createdAt is timestamp;
+    }
+
+    function isValidLearningProgress(data, userId) {
+      return data.keys().hasAll(['userId', 'completedTopics', 'updatedAt'])
+        && data.keys().hasOnly(['userId', 'completedTopics', 'updatedAt'])
+        && data.userId is string
+        && data.userId == userId
+        && data.userId == request.auth.uid
+        && data.completedTopics is list
+        && data.completedTopics.size() <= 10
+        && data.completedTopics.hasOnly([
+          'budgeting', 'savings', 'mutual_funds', 'stocks', 'fd', 'ppf', 'risk_management'
+        ])
+        && data.updatedAt is timestamp;
+    }
+
+    // User Profile Collection
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isOwner(userId);
+      allow create: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming(), userId)
+        && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'email', 'updatedAt'])
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time;
+      allow delete: if false;
+
+      // Assessments Subcollection
+      match /assessments/{assessmentId} {
+        allow get: if isValidId(userId) && isValidId(assessmentId) && isOwner(userId);
+        allow list: if isValidId(userId) && isOwner(userId) && resource.data.userId == request.auth.uid;
+        allow create: if isValidId(userId)
+          && isValidId(assessmentId)
+          && isOwner(userId)
+          && exists(/databases/$(database)/documents/users/$(userId))
+          && isValidAssessment(incoming(), userId, assessmentId)
+          && incoming().createdAt == request.time;
+        allow update: if false;
+        allow delete: if isValidId(userId) && isValidId(assessmentId) && isOwner(userId);
+      }
+
+      // Comparisons Subcollection
+      match /comparisons/{comparisonId} {
+        allow get: if isValidId(userId) && isValidId(comparisonId) && isOwner(userId);
+        allow list: if isValidId(userId) && isOwner(userId) && resource.data.userId == request.auth.uid;
+        allow create: if isValidId(userId)
+          && isValidId(comparisonId)
+          && isOwner(userId)
+          && exists(/databases/$(database)/documents/users/$(userId))
+          && isValidComparison(incoming(), userId, comparisonId)
+          && incoming().createdAt == request.time;
+        allow update: if false;
+        allow delete: if isValidId(userId) && isValidId(comparisonId) && isOwner(userId);
+      }
+
+      // Learning Progress Subcollection
+      match /learningProgress/{docId} {
+        allow get: if isValidId(userId) && isValidId(docId) && docId == 'summary' && isOwner(userId);
+        allow create: if isValidId(userId)
+          && isValidId(docId)
+          && docId == 'summary'
+          && isOwner(userId)
+          && exists(/databases/$(database)/documents/users/$(userId))
+          && isValidLearningProgress(incoming(), userId)
+          && incoming().updatedAt == request.time;
+        allow update: if isValidId(userId)
+          && isValidId(docId)
+          && docId == 'summary'
+          && isOwner(userId)
+          && isValidLearningProgress(incoming(), userId)
+          && incoming().diff(existing()).affectedKeys().hasOnly(['completedTopics', 'updatedAt'])
+          && incoming().userId == existing().userId
+          && incoming().updatedAt == request.time;
+        allow delete: if false;
+      }
+    }
+  }
+}

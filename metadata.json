@@ -1,0 +1,6 @@
+{
+  "name": "FinGuide AI",
+  "description": "AI-powered financial education and guidance platform for college students, MBA students, and young professionals in India.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,231 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated FinGuide AI student profile stored privately under the user's UID.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "minLength": 3,
+          "maxLength": 160
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "displayName", "email", "createdAt", "updatedAt"]
+    },
+    "ConfidenceAssessment": {
+      "title": "ConfidenceAssessment",
+      "description": "Completed 5-minute Financial Confidence Check score and profile answers.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "city": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "goal": {
+          "type": "string",
+          "enum": ["emergency_fund", "first_investment", "saving_for_purchase", "learning_basics"]
+        },
+        "incomeRange": {
+          "type": "string",
+          "enum": ["under_5k", "5k_to_15k", "15k_to_35k", "above_35k"]
+        },
+        "expenseRatio": {
+          "type": "string",
+          "enum": ["under_50", "50_to_75", "75_to_95", "above_95"]
+        },
+        "savingsLevel": {
+          "type": "string",
+          "enum": ["starting_0_5k", "cushion_5k_25k", "growing_25k_1l", "solid_above_1l"]
+        },
+        "emergencyFundMonths": {
+          "type": "string",
+          "enum": ["none", "under_1_month", "1_to_3_months", "3_to_6_plus_months"]
+        },
+        "experience": {
+          "type": "string",
+          "enum": ["none", "beginner", "some"]
+        },
+        "riskPreference": {
+          "type": "string",
+          "enum": ["low", "medium", "high"]
+        },
+        "knowledgeLevel": {
+          "type": "string",
+          "enum": ["new", "basic", "moderate"]
+        },
+        "biggestConfusion": {
+          "type": "string",
+          "enum": ["saving", "budgeting", "investing", "insurance", "terminology"]
+        },
+        "score": {
+          "type": "integer"
+        },
+        "scoreLabel": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "goal",
+        "incomeRange",
+        "expenseRatio",
+        "savingsLevel",
+        "emergencyFundMonths",
+        "experience",
+        "riskPreference",
+        "knowledgeLevel",
+        "biggestConfusion",
+        "score",
+        "scoreLabel",
+        "createdAt"
+      ]
+    },
+    "SavedComparison": {
+      "title": "SavedComparison",
+      "description": "Saved FD vs SIP vs PPF comparison calculation scenario.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "monthlyAmount": {
+          "type": "number"
+        },
+        "durationYears": {
+          "type": "integer"
+        },
+        "fdRate": {
+          "type": "number"
+        },
+        "sipRate": {
+          "type": "number"
+        },
+        "ppfRate": {
+          "type": "number"
+        },
+        "totalInvested": {
+          "type": "number"
+        },
+        "fdMaturity": {
+          "type": "number"
+        },
+        "sipMaturity": {
+          "type": "number"
+        },
+        "ppfMaturity": {
+          "type": "number"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "monthlyAmount",
+        "durationYears",
+        "fdRate",
+        "sipRate",
+        "ppfRate",
+        "totalInvested",
+        "fdMaturity",
+        "sipMaturity",
+        "ppfMaturity",
+        "createdAt"
+      ]
+    },
+    "LearningProgress": {
+      "title": "LearningProgress",
+      "description": "Completed Educational Dashboard topic IDs for a signed-in student.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "completedTopics": {
+          "type": "array"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["userId", "completedTopics", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private user account metadata."
+    },
+    "/users/{userId}/assessments/{assessmentId}": {
+      "schema": { "$ref": "#/entities/ConfidenceAssessment" },
+      "description": "Saved Financial Confidence Check assessments owned by the user."
+    },
+    "/users/{userId}/comparisons/{comparisonId}": {
+      "schema": { "$ref": "#/entities/SavedComparison" },
+      "description": "Saved FD vs SIP vs PPF comparison calculations owned by the user."
+    },
+    "/users/{userId}/learningProgress/{docId}": {
+      "schema": { "$ref": "#/entities/LearningProgress" },
+      "description": "Educational Dashboard completed topic tracking document."
+    }
+  }
+}
